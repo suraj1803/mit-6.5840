@@ -1,14 +1,24 @@
 package mr
 
-import "log"
-import "net"
-import "os"
-import "net/rpc"
-import "net/http"
+import (
+	"errors"
+	"log"
+	"net"
+	"net/http"
+	"net/rpc"
+	"os"
+)
 
 
+type Task struct {
+	TaskId int
+	TaskType string
+	TaskState string
+	InputFile string
+}
 
 type Coordinator struct {
+	Tasks []Task
 	Files []string
 }
 
@@ -27,10 +37,19 @@ func (c *Coordinator) Example(args *ExampleArgs, reply *ExampleReply) error {
 }
 
 
-func (c *Coordinator) Test(args *TestArgs, reply *TestArgs) error {
-    reply.FileName = c.Files[0]
-    // log.Print(reply.FileName)
-    return nil
+
+func (c *Coordinator) TestHandler(args *TestArgs, reply *TestArgs) error {
+	for idx, task := range c.Tasks {
+		if task.TaskState == "idle" {
+
+			c.Tasks[idx].TaskState = "active"
+
+			reply.FileName = task.InputFile;
+			return nil
+		}
+	}
+
+	return errors.New("All tasks are ongoing")
 }
 
 //
@@ -72,6 +91,19 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	// Your code here.
 	for _, file := range files {
 		c.Files = append(c.Files, file)
+	}
+
+	for i, file  := range c.Files {
+		c.Tasks = append(c.Tasks, Task {
+			TaskId: i,
+			TaskType: "map",
+			TaskState: "idle",
+			InputFile: file,
+		})
+
+		// /* DEBUG */
+		// task := c.Tasks[i]
+		// fmt.Printf("TaskId: %v\nTaskType: %v\nTaskState: %v\nInputFile: %v\n\n", task.TaskId, task.TaskType, task.TaskState, task.InputFile)
 	}
 
 	c.server()

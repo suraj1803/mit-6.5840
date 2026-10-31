@@ -40,6 +40,7 @@ func Worker(mapf func(string, string) []KeyValue,
 	CallTest(mapf)
 }
 
+
 //
 // example function to show how to make an RPC call to the coordinator.
 //
@@ -74,7 +75,7 @@ func CallTest(mapf func(string, string) []KeyValue) {
 	reply := TestArgs{}
 
 	intermediate := []KeyValue{}
-	ok := call("Coordinator.Test", &args, &reply)
+	ok := call("Coordinator.TestHandler", &args, &reply)
 	fmt.Printf("RPC success: %v\n", ok)
 	fmt.Printf("args: %+v\n", args)
 	fmt.Printf("reply: %+v\n", reply)
