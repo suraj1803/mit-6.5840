@@ -1,10 +1,13 @@
 package mr
 
-import "fmt"
-import "log"
-import "net/rpc"
-import "hash/fnv"
-
+import (
+	"fmt"
+	"hash/fnv"
+	"io"
+	"log"
+	"net/rpc"
+	"os"
+)
 
 //
 // Map functions return a slice of KeyValue.
@@ -33,9 +36,8 @@ func Worker(mapf func(string, string) []KeyValue,
 
 	// Your worker implementation here.
 
-	// uncomment to send the Example RPC to the coordinator.
 	// CallExample()
-
+	CallTest(mapf)
 }
 
 //
@@ -49,7 +51,7 @@ func CallExample() {
 	args := ExampleArgs{}
 
 	// fill in the argument(s).
-	args.X = 99
+	args.X = 100
 
 	// declare a reply structure.
 	reply := ExampleReply{}
@@ -64,6 +66,35 @@ func CallExample() {
 		fmt.Printf("reply.Y %v\n", reply.Y)
 	} else {
 		fmt.Printf("call failed!\n")
+	}
+}
+
+func CallTest(mapf func(string, string) []KeyValue) {
+	args := TestArgs{}
+	reply := TestArgs{}
+
+	intermediate := []KeyValue{}
+	ok := call("Coordinator.Test", &args, &reply)
+	fmt.Printf("RPC success: %v\n", ok)
+	fmt.Printf("args: %+v\n", args)
+	fmt.Printf("reply: %+v\n", reply)
+
+	if ok {
+		file, err := os.Open(reply.FileName)
+		if err != nil {
+			log.Fatalf("cannot open %v", file)
+		}
+		content, err := io.ReadAll(file)
+		if err != nil {
+			log.Fatalf("cannot read %v", file)
+		}
+		file.Close()
+		kva := mapf(file.Name(), string(content))
+		intermediate = append(intermediate, kva...)
+	}
+
+	for _, kv := range intermediate{
+		fmt.Printf("%v %v\n", kv.Key, kv.Value)
 	}
 }
 

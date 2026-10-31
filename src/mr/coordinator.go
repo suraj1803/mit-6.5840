@@ -7,9 +7,9 @@ import "net/rpc"
 import "net/http"
 
 
-type Coordinator struct {
-	// Your definitions here.
 
+type Coordinator struct {
+	Files []string
 }
 
 // Your code here -- RPC handlers for the worker to call.
@@ -19,11 +19,19 @@ type Coordinator struct {
 //
 // the RPC argument and reply types are defined in rpc.go.
 //
+
+
 func (c *Coordinator) Example(args *ExampleArgs, reply *ExampleReply) error {
 	reply.Y = args.X + 1
 	return nil
 }
 
+
+func (c *Coordinator) Test(args *TestArgs, reply *TestArgs) error {
+    reply.FileName = c.Files[0]
+    // log.Print(reply.FileName)
+    return nil
+}
 
 //
 // start a thread that listens for RPCs from worker.go
@@ -61,9 +69,10 @@ func (c *Coordinator) Done() bool {
 //
 func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	c := Coordinator{}
-
 	// Your code here.
-
+	for _, file := range files {
+		c.Files = append(c.Files, file)
+	}
 
 	c.server()
 	return &c
