@@ -17,7 +17,13 @@ import (
 //
 
 type TestArgs struct {
+	TaskId int
+	TaskType string
+	TaskState string
 	FileName string
+	TotalTasks int
+	Active int
+	NReduce int
 }
 
 type ExampleArgs struct {

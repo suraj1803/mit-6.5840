@@ -14,11 +14,12 @@ type Task struct {
 	TaskId int
 	TaskType string
 	TaskState string
-	InputFile string
+	FileName string
 }
 
 type Coordinator struct {
 	Tasks []Task
+	ReduceTasks []Task
 	Files []string
 }
 
@@ -37,19 +38,69 @@ func (c *Coordinator) Example(args *ExampleArgs, reply *ExampleReply) error {
 }
 
 
+func (c *Coordinator) MapFinished() bool {
+	for _, task := range c.Tasks {
+		if task.TaskState != "completed" {
+			return false
+		}
+	}
+	return true
+}
+
+func (c *Coordinator) ReduceFinished() bool {
+	for _, task := range c.ReduceTasks {
+		if task.TaskState != "completed" {
+			return false
+		}
+	}
+	return true
+}
+
+func (c *Coordinator) TaskDone(args *TestArgs, reply *TestArgs) error {
+	if args.TaskType == "map" {
+		c.Tasks[args.TaskId].TaskState = "completed"
+	} else if args.TaskType == "reduce" {
+		c.ReduceTasks[args.TaskId].TaskState = "completed"
+	}
+	return nil
+}
 
 func (c *Coordinator) TestHandler(args *TestArgs, reply *TestArgs) error {
-	for idx, task := range c.Tasks {
-		if task.TaskState == "idle" {
+	if !c.MapFinished() {
+		for idx, task := range c.Tasks {
+			if task.TaskState == "idle" {
+				c.Tasks[idx].TaskState = "active"
 
-			c.Tasks[idx].TaskState = "active"
+				// adding taskinfo to reply
+				reply.FileName = task.FileName
+				reply.TaskId = idx
+				reply.TaskType = "map"
+				reply.TaskState = "active"
+				reply.Active++
+				reply.TotalTasks = len(c.Tasks)
+				reply.NReduce = len(c.ReduceTasks)
 
-			reply.FileName = task.InputFile;
-			return nil
+				return nil
+			}
+		}
+	} else {
+		for idx, task := range c.ReduceTasks {
+			if task.TaskState == "idle" {
+				c.ReduceTasks[idx].TaskState = "active"
+
+				reply.TaskId = idx
+				reply.TaskType = "reduce"
+				reply.TaskState = "active"
+				reply.Active++
+				reply.TotalTasks = len(c.Tasks)
+				reply.NReduce = len(c.ReduceTasks)
+
+				return nil
+			}
 		}
 	}
 
-	return errors.New("All tasks are ongoing")
+	return errors.New("some error occurred")
 }
 
 //
@@ -98,12 +149,21 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 			TaskId: i,
 			TaskType: "map",
 			TaskState: "idle",
-			InputFile: file,
+			FileName: file,
 		})
 
 		// /* DEBUG */
 		// task := c.Tasks[i]
 		// fmt.Printf("TaskId: %v\nTaskType: %v\nTaskState: %v\nInputFile: %v\n\n", task.TaskId, task.TaskType, task.TaskState, task.InputFile)
+	}
+
+	for i := range nReduce {
+		c.ReduceTasks = append(c.ReduceTasks, Task {
+			TaskId: i,
+			TaskType: "reduce",
+			TaskState:  "idle",
+			FileName: "",
+		})
 	}
 
 	c.server()
