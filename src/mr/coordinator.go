@@ -1,7 +1,6 @@
 package mr
 
 import (
-	"errors"
 	"log"
 	"net"
 	"net/http"
@@ -21,20 +20,6 @@ type Coordinator struct {
 	Tasks []Task
 	ReduceTasks []Task
 	Files []string
-}
-
-// Your code here -- RPC handlers for the worker to call.
-
-//
-// an example RPC handler.
-//
-// the RPC argument and reply types are defined in rpc.go.
-//
-
-
-func (c *Coordinator) Example(args *ExampleArgs, reply *ExampleReply) error {
-	reply.Y = args.X + 1
-	return nil
 }
 
 
@@ -66,6 +51,7 @@ func (c *Coordinator) TaskDone(args *TestArgs, reply *TestArgs) error {
 }
 
 func (c *Coordinator) TestHandler(args *TestArgs, reply *TestArgs) error {
+
 	if !c.MapFinished() {
 		for idx, task := range c.Tasks {
 			if task.TaskState == "idle" {
@@ -83,7 +69,13 @@ func (c *Coordinator) TestHandler(args *TestArgs, reply *TestArgs) error {
 				return nil
 			}
 		}
-	} else {
+
+		// Map tasks are still active (not completed yet), tell worker to wait
+		reply.TaskType = "wait"
+		return nil
+
+	// if mapping phase is finished then start reducing phase
+	} else if !c.ReduceFinished() {
 		for idx, task := range c.ReduceTasks {
 			if task.TaskState == "idle" {
 				c.ReduceTasks[idx].TaskState = "active"
@@ -98,9 +90,15 @@ func (c *Coordinator) TestHandler(args *TestArgs, reply *TestArgs) error {
 				return nil
 			}
 		}
+
+		// Reduce tasks are still active (not completed yet), tell worker to wait
+		reply.TaskType = "wait"
+		return nil
 	}
 
-	return errors.New("some error occurred")
+	// All Map and Reduce tasks are completed, tell worker to exit
+	reply.TaskType = "exit"
+	return nil
 }
 
 //
