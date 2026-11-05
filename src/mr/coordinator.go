@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"net/rpc"
 	"os"
+	"sync"
 )
-
 
 type Task struct {
 	TaskId int
@@ -17,9 +17,10 @@ type Task struct {
 }
 
 type Coordinator struct {
-	Tasks []Task
+	mu          sync.Mutex
+	Tasks       []Task
 	ReduceTasks []Task
-	Files []string
+	Files       []string
 }
 
 
@@ -42,6 +43,9 @@ func (c *Coordinator) ReduceFinished() bool {
 }
 
 func (c *Coordinator) TaskDone(args *TestArgs, reply *TestArgs) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if args.TaskType == "map" {
 		c.Tasks[args.TaskId].TaskState = "completed"
 	} else if args.TaskType == "reduce" {
@@ -51,6 +55,8 @@ func (c *Coordinator) TaskDone(args *TestArgs, reply *TestArgs) error {
 }
 
 func (c *Coordinator) TestHandler(args *TestArgs, reply *TestArgs) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	if !c.MapFinished() {
 		for idx, task := range c.Tasks {
@@ -122,8 +128,10 @@ func (c *Coordinator) server() {
 // if the entire job has finished.
 //
 func (c *Coordinator) Done() bool {
-	ret := c.ReduceFinished();
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
+	ret := c.ReduceFinished()
 	return ret
 }
 
